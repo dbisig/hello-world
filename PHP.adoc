@@ -1,0 +1,61 @@
+= PHP - How-To's and other useful stuff
+Daniel Bisig <daniel.bisig@infosecglobal.com>
+v1.1, 2018-08-07
+:doctype: article
+//:source-highlighter: coderay
+:listing-caption: Listing
+//The next line is needed to display the admonition icons
+//:icons: font
+// Uncomment next line to set page size (default is Letter)
+:pdf-page-size: A4
+:toc:
+:sectnums:
+//:stylesheet: golo.css
+
+== Logging
+
+=== Background
+I have an application for authenticating users via an HTML Form with the POST method. Since this solution is not using the html auth basic mechanism, logon failures will not be logged by apache to syslog, but handled with PHP. I want to secure the site with https://www.fail2ban.org/[fail2ban], which requires a log file to parse for failed login attempts.
+
+=== Error functions
+
+To enable the error functions below, uncomment the following directive in `/etc/php.ini` (line 586)
+
+REM: Are there other ways to enable it on user level?
+
+ error_log = syslog
+
+PHP offers two functions for logging messages to syslog:
+
+* error_log() -> see http://php.net/manual/en/function.error-log.php[reference]
+* syslog() -> see http://php.net/manual/en/function.syslog.php[reference]
+
+The following example could be used:
+
+ error_log("Failed login attempt from host xy!", 0);
+
+which results in a string similar to:
+
+`Aug  8 14:33:01 tester2 php: Failed login attempt from host xy!`
+
+being logged, or:
+
+ syslog(LOG_ERR, "Failed login attempt from host xy!");
+
+which will log the exact same string to the log file.
+
+When trying to access the restricted area of a web server a failed login attempt is logged to `/var/log/httpd/error_log` as follows: (if the user is unknown)
+
+`[Wed Aug 08 15:10:43.621039 2018] [auth_basic:error] [pid 8941] [client 192.168.122.1:51436] AH01618: user user2 not found: /`
+
+or if the user exists, but only the password is incorrect:
+
+`[Wed Aug 08 15:20:10.415553 2018] [auth_basic:error] [pid 10376] [client 192.168.122.1:51534] AH01617: user user1: authentication failure for "/": Password Mismatch`
+
+'''
+
+When PHP sends a message to syslog, it will send it to the "*user*" facility. (for information about syslog facilites see man syslog(3)) or https://en.wikipedia.org/wiki/Syslog[wikipedia].
+
+RHEL7 uses rsyslog, configured by `/etc/rsyslog.conf`. Messages from the "user" facility by default are logged to `/var/log/messages`. In order to separate messages of the "user" facility from the rest, add the following line to  `/etc/rsyslog.conf`:
+
+ user.* /var/log/php-logs
